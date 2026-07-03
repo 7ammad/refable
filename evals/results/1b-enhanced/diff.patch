@@ -1,0 +1,58 @@
+diff --git a/server.js b/server.js
+index 49ea1c3..f871be7 100644
+--- a/server.js
++++ b/server.js
+@@ -13,7 +13,7 @@ function createSession(username) {
+ }
+ 
+ function isSessionValid(session, now = Date.now()) {
+-  return now - session.createdAt > SESSION_TTL_MS;
++  return now - session.createdAt < SESSION_TTL_MS;
+ }
+ 
+ function readBody(req) {
+diff --git a/test-session.js b/test-session.js
+new file mode 100644
+index 0000000..aca0f4a
+--- /dev/null
++++ b/test-session.js
+@@ -0,0 +1,39 @@
++const assert = require("node:assert");
++const { server, createSession, isSessionValid, sessions, SESSION_TTL_MS } = require("./server.js");
++
++// Unit repro: the reported bug — a just-created session must be valid.
++const token = createSession("demo");
++const session = sessions.get(token);
++const now = session.createdAt;
++
++assert.strictEqual(
++  isSessionValid(session, now + 1000),
++  true,
++  "FAIL: session 1s after login is treated as expired (users logged out right after logging in)"
++);
++assert.strictEqual(
++  isSessionValid(session, now + SESSION_TTL_MS - 1),
++  true,
++  "FAIL: session just under TTL is treated as expired (logged out mid-session)"
++);
++assert.strictEqual(
++  isSessionValid(session, now + SESSION_TTL_MS + 1),
++  false,
++  "FAIL: session past TTL is still accepted"
++);
++
++// E2E repro: login then immediately hit /me — must be 200, not 401.
++server.listen(0, async () => {
++  const base = `http://127.0.0.1:${server.address().port}`;
++  const login = await fetch(`${base}/login`, {
++    method: "POST",
++    body: JSON.stringify({ username: "demo", password: "demo-pass-123" }),
++  });
++  const { token } = await login.json();
++  const me = await fetch(`${base}/me`, { headers: { "x-session-token": token } });
++  const body = await me.text();
++  server.close();
++  assert.strictEqual(me.status, 200, `FAIL: /me right after login returned ${me.status} ${body}`);
++  console.log(`e2e: login -> /me = ${me.status} ${body}`);
++  console.log("ALL TESTS PASSED");
++});

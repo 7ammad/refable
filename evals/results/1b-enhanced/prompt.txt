@@ -1,0 +1,1 @@
+I'm working on the auth flow for this service; users are getting logged out mid-session or right after logging in. With that in mind: find and fix the root cause. Boundaries: touch only the auth/session path. Done means: the failing case reproduces before the fix and passes after — show the command output for both. Lead with what you found.

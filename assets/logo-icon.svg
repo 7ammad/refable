@@ -1,0 +1,18 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="refablePurple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d7bff"/>
+      <stop offset="1" stop-color="#6f5ff0"/>
+    </linearGradient>
+  </defs>
+  <!-- tile -->
+  <rect width="512" height="512" rx="104" fill="#0f1117"/>
+  <!-- the raw prompt: small, faint chevron -->
+  <path d="M 128 214 L 170 256 L 128 298" fill="none" stroke="#3d4460" stroke-width="26"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- the refined prompt: bold chevron -->
+  <path d="M 236 168 L 324 256 L 236 344" fill="none" stroke="url(#refablePurple)" stroke-width="44"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- cursor: ready to run -->
+  <rect x="356" y="318" width="52" height="26" rx="13" fill="#6fd0a0"/>
+</svg>

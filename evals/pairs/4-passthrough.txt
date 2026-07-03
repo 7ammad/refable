@@ -1,0 +1,1 @@
+/enhance I'm migrating our billing service off Stripe Charges to PaymentIntents for the EU launch. Assess the diff in ./migrations for double-charge risk only — report findings, change nothing. Done means each risk cites the exact line. Lead with the verdict.

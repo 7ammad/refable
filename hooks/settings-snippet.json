@@ -1,0 +1,15 @@
+{
+  "_comment": "Merge the 'hooks' block into ~/.claude/settings.json (user-wide) or .claude/settings.json (per-project). Adjust the path to wherever you cloned refable.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Dev/Builds/refable/hooks/refable-hook.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

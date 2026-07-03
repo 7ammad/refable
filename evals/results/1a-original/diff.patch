@@ -1,0 +1,13 @@
+diff --git a/server.js b/server.js
+index 49ea1c3..3a57dc4 100644
+--- a/server.js
++++ b/server.js
+@@ -13,7 +13,7 @@ function createSession(username) {
+ }
+ 
+ function isSessionValid(session, now = Date.now()) {
+-  return now - session.createdAt > SESSION_TTL_MS;
++  return now - session.createdAt <= SESSION_TTL_MS;
+ }
+ 
+ function readBody(req) {

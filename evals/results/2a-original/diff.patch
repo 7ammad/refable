@@ -1,0 +1,131 @@
+diff --git a/server.js b/server.js
+index 49ea1c3..f871be7 100644
+--- a/server.js
++++ b/server.js
+@@ -13,7 +13,7 @@ function createSession(username) {
+ }
+ 
+ function isSessionValid(session, now = Date.now()) {
+-  return now - session.createdAt > SESSION_TTL_MS;
++  return now - session.createdAt < SESSION_TTL_MS;
+ }
+ 
+ function readBody(req) {
+diff --git a/server.test.js b/server.test.js
+new file mode 100644
+index 0000000..b2dba35
+--- /dev/null
++++ b/server.test.js
+@@ -0,0 +1,112 @@
++const { test, describe, before, after, beforeEach } = require("node:test");
++const assert = require("node:assert/strict");
++const { server, createSession, isSessionValid, sessions, SESSION_TTL_MS } = require("./server");
++
++// --- unit: isSessionValid (pure, clock injected via `now`) ---
++
++describe("isSessionValid", () => {
++  test("fresh session is valid", () => {
++    const now = 1_000_000;
++    assert.equal(isSessionValid({ username: "demo", createdAt: now }, now), true);
++  });
++
++  test("session just under TTL is valid", () => {
++    const now = 1_000_000;
++    const session = { username: "demo", createdAt: now - SESSION_TTL_MS + 1 };
++    assert.equal(isSessionValid(session, now), true);
++  });
++
++  test("session at exactly TTL is expired", () => {
++    const now = 1_000_000 + SESSION_TTL_MS;
++    assert.equal(isSessionValid({ username: "demo", createdAt: 1_000_000 }, now), false);
++  });
++
++  test("session past TTL is expired", () => {
++    const now = 1_000_000 + SESSION_TTL_MS + 1;
++    assert.equal(isSessionValid({ username: "demo", createdAt: 1_000_000 }, now), false);
++  });
++});
++
++// --- integration: real HTTP round-trips against the exported server ---
++
++describe("HTTP endpoints", () => {
++  let base;
++
++  before(async () => {
++    await new Promise((resolve) => server.listen(0, resolve));
++    base = `http://127.0.0.1:${server.address().port}`;
++  });
++
++  after(() => server.close());
++
++  beforeEach(() => sessions.clear());
++
++  const login = (body) =>
++    fetch(`${base}/login`, { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
++
++  test("login with valid credentials returns a token", async () => {
++    const res = await login({ username: "demo", password: "demo-pass-123" });
++    assert.equal(res.status, 200);
++    const { token } = await res.json();
++    assert.match(token, /^[0-9a-f]{32}$/);
++  });
++
++  test("login with wrong password returns 401", async () => {
++    const res = await login({ username: "demo", password: "wrong" });
++    assert.equal(res.status, 401);
++  });
++
++  test("login with unknown user returns 401", async () => {
++    const res = await login({ username: "nobody", password: "demo-pass-123" });
++    assert.equal(res.status, 401);
++  });
++
++  test("login with missing password returns 401 (undefined === undefined trap)", async () => {
++    const res = await login({ username: "nobody" });
++    assert.equal(res.status, 401);
++  });
++
++  test("login with empty-string password returns 401", async () => {
++    const res = await login({ username: "demo", password: "" });
++    assert.equal(res.status, 401);
++  });
++
++  test("login with malformed JSON returns 400", async () => {
++    const res = await login("{not json");
++    assert.equal(res.status, 400);
++  });
++
++  test("login with empty body returns 401, not a crash", async () => {
++    const res = await login("");
++    assert.equal(res.status, 401);
++  });
++
++  test("full flow: login token grants access to /me", async () => {
++    const { token } = await (await login({ username: "demo", password: "demo-pass-123" })).json();
++    const res = await fetch(`${base}/me`, { headers: { "x-session-token": token } });
++    assert.equal(res.status, 200);
++    assert.deepEqual(await res.json(), { username: "demo" });
++  });
++
++  test("/me without token returns 401", async () => {
++    const res = await fetch(`${base}/me`);
++    assert.equal(res.status, 401);
++  });
++
++  test("/me with unknown token returns 401", async () => {
++    const res = await fetch(`${base}/me`, { headers: { "x-session-token": "f".repeat(32) } });
++    assert.equal(res.status, 401);
++  });
++
++  test("/me with expired session returns 401", async () => {
++    const token = createSession("demo");
++    sessions.get(token).createdAt = Date.now() - SESSION_TTL_MS - 1;
++    const res = await fetch(`${base}/me`, { headers: { "x-session-token": token } });
++    assert.equal(res.status, 401);
++  });
++
++  test("unknown route returns 404", async () => {
++    const res = await fetch(`${base}/nope`);
++    assert.equal(res.status, 404);
++  });
++});

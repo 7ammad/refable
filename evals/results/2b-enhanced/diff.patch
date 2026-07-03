@@ -1,0 +1,167 @@
+diff --git a/server.test.js b/server.test.js
+new file mode 100644
+index 0000000..5d18737
+--- /dev/null
++++ b/server.test.js
+@@ -0,0 +1,161 @@
++// Failure-mode tests for the auth/session path.
++// Contract under test (from README + endpoint semantics):
++//   POST /login  {username, password} -> 200 {token} on valid creds, 401 otherwise, 400 on bad JSON
++//   GET  /me     header x-session-token -> 200 {username} for a live session, 401 for missing/unknown/expired
++// Tests encode how the system COULD BREAK (expired sessions accepted, fresh
++// sessions rejected, credential bypass, token guessing), not just the happy path.
++// If a test fails against current code, that is a finding — the test is not adjusted to pass.
++
++const test = require("node:test");
++const assert = require("node:assert");
++const { server, createSession, isSessionValid, sessions, SESSION_TTL_MS } = require("./server.js");
++
++let baseUrl;
++
++test.before(async () => {
++  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
++  baseUrl = `http://127.0.0.1:${server.address().port}`;
++});
++
++test.after(() => new Promise((resolve) => server.close(resolve)));
++
++async function login(body) {
++  const res = await fetch(`${baseUrl}/login`, {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: typeof body === "string" ? body : JSON.stringify(body),
++  });
++  return { status: res.status, json: await res.json() };
++}
++
++async function me(token) {
++  const headers = token === undefined ? {} : { "x-session-token": token };
++  const res = await fetch(`${baseUrl}/me`, { headers });
++  return { status: res.status, json: await res.json() };
++}
++
++// ---------------------------------------------------------------------------
++// Unit: isSessionValid — the expiry gate. If this is wrong, every /me decision is wrong.
++// ---------------------------------------------------------------------------
++
++test("unit: a freshly created session is valid", () => {
++  const now = 1_000_000_000;
++  const session = { username: "demo", createdAt: now - 1000 }; // 1s old
++  assert.strictEqual(isSessionValid(session, now), true,
++    "a 1-second-old session must be valid (TTL is 30 minutes)");
++});
++
++test("unit: a session older than SESSION_TTL_MS is invalid", () => {
++  const now = 1_000_000_000;
++  const session = { username: "demo", createdAt: now - SESSION_TTL_MS - 1 };
++  assert.strictEqual(isSessionValid(session, now), false,
++    "a session past its TTL must be invalid");
++});
++
++test("unit: a session just under the TTL boundary is still valid", () => {
++  const now = 1_000_000_000;
++  const session = { username: "demo", createdAt: now - SESSION_TTL_MS + 1 };
++  assert.strictEqual(isSessionValid(session, now), true,
++    "a session 1ms before expiry must still be valid");
++});
++
++// ---------------------------------------------------------------------------
++// Failure modes: expiry enforcement end-to-end
++// ---------------------------------------------------------------------------
++
++test("e2e: an expired session is rejected by /me with 401", async () => {
++  const token = createSession("demo");
++  // Backdate the session past the TTL — this is the "stale cookie replayed
++  // an hour later" attack. It MUST be rejected.
++  sessions.get(token).createdAt = Date.now() - SESSION_TTL_MS - 60_000;
++  const res = await me(token);
++  assert.strictEqual(res.status, 401,
++    `an expired session must get 401, got ${res.status} with body ${JSON.stringify(res.json)}`);
++});
++
++test("e2e: a token that was never issued is rejected", async () => {
++  const res = await me("f".repeat(32)); // well-formed but never issued
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: /me without a token is rejected", async () => {
++  const res = await me(undefined);
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: /me with an empty-string token is rejected", async () => {
++  const res = await me("");
++  assert.strictEqual(res.status, 401);
++});
++
++// ---------------------------------------------------------------------------
++// Failure modes: credential checking on /login
++// ---------------------------------------------------------------------------
++
++test("e2e: wrong password is rejected with 401 and no token", async () => {
++  const res = await login({ username: "demo", password: "wrong" });
++  assert.strictEqual(res.status, 401);
++  assert.strictEqual(res.json.token, undefined, "401 body must not leak a token");
++});
++
++test("e2e: unknown user is rejected", async () => {
++  const res = await login({ username: "nobody", password: "demo-pass-123" });
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: missing password is rejected (undefined === undefined bypass)", async () => {
++  // If the handler compares USERS.get(username) === body.password without
++  // guarding, {username:"ghost"} gives undefined === undefined -> login as anyone.
++  const res = await login({ username: "ghost" });
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: empty body {} is rejected", async () => {
++  const res = await login({});
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: non-string password (true) is rejected", async () => {
++  const res = await login({ username: "demo", password: true });
++  assert.strictEqual(res.status, 401);
++});
++
++test("e2e: malformed JSON body gets 400, not a crash or a session", async () => {
++  const res = await login("{not json");
++  assert.strictEqual(res.status, 400);
++});
++
++test("e2e: valid credentials issue a token", async () => {
++  const res = await login({ username: "demo", password: "demo-pass-123" });
++  assert.strictEqual(res.status, 200);
++  assert.match(res.json.token, /^[0-9a-f]{32}$/, "token should be 16 random bytes hex-encoded");
++});
++
++// ---------------------------------------------------------------------------
++// Failure mode: the round trip — if login succeeds but the token doesn't work,
++// every user is silently locked out.
++// ---------------------------------------------------------------------------
++
++test("e2e: a token from a successful login is accepted by /me immediately", async () => {
++  const loginRes = await login({ username: "demo", password: "demo-pass-123" });
++  assert.strictEqual(loginRes.status, 200);
++  const res = await me(loginRes.json.token);
++  assert.strictEqual(res.status, 200,
++    `a just-issued token must be accepted, got ${res.status} with body ${JSON.stringify(res.json)}`);
++  assert.strictEqual(res.json.username, "demo");
++});
++
++// ---------------------------------------------------------------------------
++// Routing / misc failure modes
++// ---------------------------------------------------------------------------
++
++test("e2e: unknown route gets 404 JSON, not a hang or crash", async () => {
++  const res = await fetch(`${baseUrl}/admin`);
++  assert.strictEqual(res.status, 404);
++  assert.deepStrictEqual(await res.json(), { error: "not found" });
++});
++
++test("e2e: GET /login (wrong method) does not issue sessions", async () => {
++  const res = await fetch(`${baseUrl}/login`);
++  assert.strictEqual(res.status, 404);
++});

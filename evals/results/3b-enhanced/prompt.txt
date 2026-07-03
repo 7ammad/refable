@@ -1,0 +1,1 @@
+I'm triaging a production complaint for a client: users report being logged out right after logging in. With that in mind: investigate this codebase and explain the root cause. Boundaries: assess-and-report only — change nothing. Done means: the explanation cites the exact file and line and describes the failing scenario concretely. Lead with the root cause.

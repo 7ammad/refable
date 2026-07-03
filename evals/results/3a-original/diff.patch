@@ -1,0 +1,36 @@
+diff --git a/isSessionValid.test.js b/isSessionValid.test.js
+new file mode 100644
+index 0000000..55c8561
+--- /dev/null
++++ b/isSessionValid.test.js
+@@ -0,0 +1,17 @@
++const { test } = require("node:test");
++const assert = require("node:assert");
++const { isSessionValid, SESSION_TTL_MS } = require("./server");
++
++const NOW = 1_000_000_000_000;
++
++test("fresh session is valid", () => {
++  assert.equal(isSessionValid({ username: "demo", createdAt: NOW - 1000 }, NOW), true);
++});
++
++test("session just under TTL is valid", () => {
++  assert.equal(isSessionValid({ username: "demo", createdAt: NOW - SESSION_TTL_MS + 1 }, NOW), true);
++});
++
++test("session past TTL is expired", () => {
++  assert.equal(isSessionValid({ username: "demo", createdAt: NOW - SESSION_TTL_MS - 1 }, NOW), false);
++});
+diff --git a/server.js b/server.js
+index 49ea1c3..f871be7 100644
+--- a/server.js
++++ b/server.js
+@@ -13,7 +13,7 @@ function createSession(username) {
+ }
+ 
+ function isSessionValid(session, now = Date.now()) {
+-  return now - session.createdAt > SESSION_TTL_MS;
++  return now - session.createdAt < SESSION_TTL_MS;
+ }
+ 
+ function readBody(req) {

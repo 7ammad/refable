@@ -1,0 +1,21 @@
+<svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="refablePurpleW" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d7bff"/>
+      <stop offset="1" stop-color="#6f5ff0"/>
+    </linearGradient>
+  </defs>
+  <!-- icon -->
+  <g transform="translate(20,20)">
+    <rect width="160" height="160" rx="34" fill="#0f1117"/>
+    <path d="M 40 67 L 53 80 L 40 93" fill="none" stroke="#3d4460" stroke-width="8.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 74 52 L 102 80 L 74 108" fill="none" stroke="url(#refablePurpleW)" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="112" y="99.5" width="16.5" height="8.5" rx="4.25" fill="#6fd0a0"/>
+  </g>
+  <!-- wordmark: "re" muted (the part we take), "fable" purple (what it becomes) -->
+  <text x="216" y="134" font-size="92" font-weight="700" letter-spacing="-2">
+    <tspan fill="#8b90a5">re</tspan><tspan fill="#7c6ff0">fable</tspan>
+  </text>
+</svg>

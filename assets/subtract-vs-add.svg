@@ -1,0 +1,36 @@
+<svg viewBox="0 0 860 460" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="860" height="460" fill="#0f1117"/>
+  <text x="430" y="38" text-anchor="middle" fill="#e8e6f0" font-size="20" font-weight="600">What refable adds — and what it removes</text>
+
+  <!-- ADD column -->
+  <rect x="50" y="70" width="360" height="330" rx="12" fill="#12201a" stroke="#2f7d5a" stroke-width="1.5"/>
+  <text x="230" y="102" text-anchor="middle" fill="#6fd0a0" font-size="16" font-weight="600">+ ADD (only if missing)</text>
+  <g fill="#cfe9dc" font-size="13">
+    <text x="78" y="140">1. Intent — “working on X, for Y,</text>
+    <text x="98" y="158">they need Z”</text>
+    <text x="78" y="192">2. Boundaries — assess vs. change,</text>
+    <text x="98" y="210">what’s out of scope</text>
+    <text x="78" y="244">3. Done + verification — evidence,</text>
+    <text x="98" y="262">not claims</text>
+    <text x="78" y="296">4. Output contract — outcome first,</text>
+    <text x="98" y="314">readable prose</text>
+    <text x="78" y="348">5. Autonomy — act when able, pause</text>
+    <text x="98" y="366">only for real decisions</text>
+  </g>
+
+  <!-- REMOVE column -->
+  <rect x="450" y="70" width="360" height="330" rx="12" fill="#241417" stroke="#a04552" stroke-width="1.5"/>
+  <text x="630" y="102" text-anchor="middle" fill="#f08a97" font-size="16" font-weight="600">− REMOVE (always)</text>
+  <g fill="#f0d4d8" font-size="13">
+    <text x="478" y="140">✕ Roleplay — “act as a senior 10x…”</text>
+    <text x="478" y="176">✕ Step-by-step micromanagement</text>
+    <text x="498" y="194">(the guide: it degrades output)</text>
+    <text x="478" y="230">✕ Redundant constraint stacks</text>
+    <text x="478" y="266">✕ “Show your reasoning” — can trigger</text>
+    <text x="498" y="284">a reasoning_extraction refusal</text>
+    <text x="478" y="320">✕ “Don’t hallucinate / be accurate”</text>
+    <text x="498" y="338">filler — replaced by a real check</text>
+  </g>
+
+  <text x="430" y="432" text-anchor="middle" fill="#9b93c9" font-size="13">…and if the prompt already has intent + boundaries + done: pass through untouched.</text>
+</svg>
