@@ -1,65 +1,100 @@
 <p align="center"><img src="assets/logo.svg" alt="refable" width="420"></p>
 
-**Say a short line. Get a Claude Fable 5–shaped prompt.**
+**Say a short line. Get a prompt shaped for the Claude model that should run it, and the name of that model.**
 
-refable re-engineers under-specified prompts using Anthropic's official [Prompting Claude Fable 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5) guide — and, unlike every other prompt enhancer, it **subtracts as often as it adds**. Fable 5's own guide warns that over-prescriptive prompts *degrade* output quality. So refable adds the four things Fable 5 actually rewards (intent, boundaries, verification, output contract), strips the things that hurt (roleplay, step-by-step micromanagement, "show your reasoning" — which can trigger refusals on Fable 5), and **passes your prompt through untouched when it's already good**.
+refable is a skill that re-engineers short, under-specified prompts using Anthropic's own prompting guides. Version 2 covers **Claude Fable 5.2 and Claude Opus 5.5**, and adds a routing step: every enhanced prompt comes with a line that says which model and effort level it belongs on.
+
+It still subtracts as often as it adds. It adds what the guides say these models reward (the reason, the boundaries, a check the model can run, exact approvals) and removes what hurts (role costumes, step-by-step procedure, "show your reasoning", stacked cautions). A prompt that is already good passes through untouched.
 
 ```
-Original:  "fix the login bug"
+Original:  fix the login bug
 
-Enhanced:  "I'm working on the auth flow for our customer portal; users are
-            getting logged out mid-session. With that in mind: find and fix the
-            root cause. Boundaries: touch only the auth path. Done means: the
-            failing case reproduces before the fix and passes after — show the
-            test output. Lead with what you found."
+Run on:    Opus 5.5 · medium
 
-Changes:   [why] added intent · [bounds] scoped to auth · [verify] repro-based done-check
+Enhanced:  There is a login bug in this repo. Find it first: check recent
+           commits, failing tests and the login paths, then reproduce the
+           failure before changing anything. Fix the cause with the smallest
+           change that does it, and leave unrelated code alone.
+           Done means the failure you reproduced no longer happens, a test
+           that failed before your change passes after it, and the existing
+           tests still pass. Mark anything you could not run as unverified.
+           Don't commit or push. Nothing else needs my go-ahead.
+           Report what the bug was, how you reproduced it, which files
+           changed and the test results.
+
+Changes:   [why] find and reproduce first · [bounds] smallest fix
+           [verify] failing test turns green · [approve] commit and push only
 ```
 
-## What's in the box
+## What is new in v2
 
-| Piece | Surface | What it does |
+| | v1 (July 2026) | v2 (November 2026) |
 |---|---|---|
-| [`skills/enhance/SKILL.md`](skills/enhance/SKILL.md) | Claude Code, Claude Desktop, claude.ai | The core skill: `/enhance <line>` or auto-triggers on short ambiguous prompts. Shows the rewrite with pattern tags, runs on confirm. |
-| [`hooks/refable-hook.mjs`](hooks/refable-hook.mjs) | Claude Code (power users) | Fully automatic tier: a `UserPromptSubmit` hook that applies the rubric to every short prompt with zero effort. Transparent — Claude opens with a one-line "Enhanced read:" so you can correct it. |
-| [`council/COUNCIL.md`](council/COUNCIL.md) | Codex, Cursor, any CLI agent | How a peer agent should shape a prompt for Fable 5 and reach it headlessly (`claude -p … --model fable`). |
-| [`evals/`](evals/) | — | Before/after A/B prompts so you can verify the enhancement helps *your* work, not just ours. |
+| Models | Fable 5 | Fable 5.2 and Opus 5.5, each with its own shaping rules |
+| Routing | none | a `Run on: <model> · <effort>` line from Anthropic's model guide |
+| Approvals | "pause for destructive actions" | names the exact actions that need a go-ahead and says the rest need none |
+| Long runs | autonomy level | finish-the-task text, and for Opus the specific early stops to avoid |
+| Facts | infer from context | look first, mark anything assumed as `[inferred: ...]` |
+
+Why the model-specific rules matter: the two guides disagree in places. "Answer directly without deliberating" can reduce thinking on Opus 5.5 at low effort, and Anthropic reports it did not stop Fable 5.2 from thinking at medium and above. Opus 5.5 starts work fast and benefits from one sentence telling it to look around first. Fable 5.2 follows cautions and style caps so literally that old ones have to come out. One generic rubric cannot do both.
+
+## What is in the box
+
+| Piece | What it does |
+|---|---|
+| [`skills/enhance/SKILL.md`](skills/enhance/SKILL.md) | The skill. `/enhance <line>`, or it triggers when a sizeable task arrives in one short line. Shows the rewrite, the route and the change tags. |
+| [`docs/MODEL-GUIDE.md`](docs/MODEL-GUIDE.md) | When to use Haiku 5.5, Sonnet 5.5, Opus 5.5 and Fable 5.2, with prices and the effort-before-model ladder, summarised from Anthropic's guide. |
+| [`hooks/refable-hook.mjs`](hooks/refable-hook.mjs) | Optional `UserPromptSubmit` hook from v1. It injects the short v1 rubric next to brief prompts. It still works, and it has not been updated for routing. |
+| [`council/COUNCIL.md`](council/COUNCIL.md) | How Codex, Cursor or another CLI agent can shape an ask for Claude and reach it headlessly. Written for v1. |
+| [`evals/`](evals/) | The v1 A/B runs and results. See "Evidence" below for what has and has not been tested on v2. |
 
 ## Install
 
-**Claude Code / Claude Desktop** — copy the skill folder:
+**Claude Code and Claude Desktop.** Copy the skill folder:
 
 ```bash
 cp -r skills/enhance ~/.claude/skills/enhance
 ```
 
-Then `/enhance make my api faster` — or just type short prompts; the skill description lets Claude invoke it when a request is ambiguous.
+Then type `/enhance make my api faster`.
 
-**claude.ai (web/mobile)** — zip `skills/enhance/` and upload it under **Customize → Skills** ([claude.ai/customize/skills](https://claude.ai/customize/skills) → “+” → Upload a skill; requires the Code Execution capability toggle to be on). Same file, no changes.
+**claude.ai.** Zip `skills/enhance/` and upload it under Customize → Skills. Same file, no changes.
 
-**Auto tier (Claude Code)** — merge [`hooks/settings-snippet.json`](hooks/settings-snippet.json) into your `~/.claude/settings.json` and adjust the path. Requires Node.
+**Cheaper workers in Claude Code.** To follow the model guide, set the default model for subagents that do not name one. In `~/.claude/settings.json`:
 
-**Codex / Cursor / other agents** — point your agent at [`council/COUNCIL.md`](council/COUNCIL.md) (Codex reads skills natively; in Cursor add it as a rule).
+```json
+{ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet" } }
+```
 
-## What exactly gets injected (full transparency)
+## What gets added, and what gets removed
 
-refable adds at most five things to a prompt, each traceable to a section of Anthropic's guide:
+Added, only when missing:
 
-1. **Intent** — *"Give the reason, not only the request"*: `I'm working on [X] for [Y]. They need [Z].`
-2. **Boundaries** — *"State the boundaries"*: assess vs. change, what's out of scope.
-3. **Done + verification** — *"Ground progress claims during long runs"*: evidence-backed done criteria.
-4. **Output contract** — *"Strong instruction following"*: lead with the outcome, readable prose.
-5. **Autonomy level** — *"Rare cases of early stopping"*: act when able, pause only for genuinely-user decisions.
+1. **Reason.** What the work is for and who uses the result.
+2. **Boundaries.** Assess-and-report or make-changes, and what is out of scope.
+3. **Done and how to check it.** A command, test or read-back that proves it.
+4. **Approvals.** The exact actions that need a go-ahead. Both models apply approval rules as written, so a vague rule holds back routine work.
+5. **Report.** What the deliverable is, where it is saved, and a closing report a reader can follow without having watched the work.
+6. **Finish the task.** For long runs: carry on through ordinary obstacles, stop only for real blockers.
 
-And it removes: roleplay preambles, procedural micromanagement, redundant constraint stacks, and reasoning-echo instructions (a Fable 5 refusal trap). No telemetry, no network calls, no data leaves your machine. The hook is ~60 lines of Node you can read in one sitting.
+Removed: role costumes, step-by-step procedure, the same constraint said three ways, "be accurate" filler, and any instruction to write out reasoning in the reply (it can be refused as reasoning extraction).
 
-## Why not just write better prompts?
+No telemetry and no network calls. The skill is one Markdown file you can read in five minutes.
 
-You should — and refable teaches you to. Every enhancement shows its work with pattern tags, so after a week of seeing `[why]` and `[verify]` you'll write Fable-shaped prompts by reflex. Training wheels that explain themselves.
+## Evidence, and its limits
 
-## Prior art & credit
+- **v1 A/B (July 2026, Fable 5).** Seven headless runs on a planted-bug fixture. The original prompts scored 1 of 3 on scope and 1 of 3 on verification. The enhanced prompts scored 3 of 3 on both. The model found the bug in every run, so the difference was behaviour, not capability. Three pairs, one fixture, one LLM grader. Details in [`evals/results.md`](evals/results.md).
+- **v2 dry run (10 November 2026, Opus 5.5).** One Opus 5.5 run applied the skill to three prompts without executing them: a vague one (rewritten), a well-specified one (passed through untouched) and a request for a prompt for another session (returned, not run). It also listed 13 ambiguities in the skill text, and the ones that mattered were fixed.
+- **Not yet done for v2.** No before-and-after A/B on Fable 5.2 or Opus 5.5, and no test of the route line against real cost. If you run one, a pull request with your results is welcome.
 
-- The patterns are Anthropic's, from the [Fable 5 prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5) — refable is a distillation, not an invention.
-- Other prompt improvers exist ([severity1/claude-code-prompt-improver](https://github.com/severity1/claude-code-prompt-improver), [GaZmagik/claude-prompt-improver](https://github.com/GaZmagik/claude-prompt-improver), Anthropic's Console prompt improver for API prompts). refable differs in being Fable-5-specific, subtractive by design, and shipping a cross-agent council pack.
+## Credit
 
-MIT license. PRs welcome.
+The patterns are Anthropic's. refable distils three public pages:
+
+- [Prompting Claude Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2)
+- [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)
+- [Which Claude model should you build with?](https://claude.dev/blog/which-claude-model-should-you-build-with/)
+
+refable is an independent project and is not affiliated with Anthropic.
+
+MIT license. Pull requests welcome.
