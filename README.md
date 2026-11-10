@@ -50,9 +50,11 @@ Why the model-specific rules matter: the two guides disagree in places. "Answer 
 
 ## Install
 
-**Claude Code and Claude Desktop.** Copy the skill folder:
+**Claude Code and Claude Desktop.** Clone the repository and copy the skill folder:
 
 ```bash
+git clone https://github.com/7ammad/refable
+cd refable
 cp -r skills/enhance ~/.claude/skills/enhance
 ```
 
